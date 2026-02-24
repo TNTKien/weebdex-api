@@ -1,5 +1,5 @@
 {
-  "name": "my-app",
+  "name": "weebdex-proxy",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

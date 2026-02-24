@@ -38,6 +38,10 @@ app.all('*', async (c) => {
     'access-control-allow-methods',
     'access-control-max-age',
     'access-control-expose-headers',
+    // Node.js fetch auto-decompresses the body; remove these so the browser
+    // does not attempt to decompress an already-decoded response.
+    'content-encoding',
+    'content-length',
   ]) {
     responseHeaders.delete(key)
   }

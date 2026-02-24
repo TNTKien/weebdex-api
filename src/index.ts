@@ -7,9 +7,43 @@ const app = new Hono()
 const TARGET_BASE = 'https://api.weebdex.org'
 const WEEBDEX_ORIGIN = 'https://weebdex.org'
 const WEEBDEX_REFERER = 'https://weebdex.org/'
+const WEEBDEX_COVER_ORIGIN = 'https://srv.weebdex.net'
 
 app.use('*', cors())
 
+// Cover images
+app.get('/covers/:mangaid/:filename', async (c) => {
+  const { mangaid, filename } = c.req.param()
+  const targetUrl = `${WEEBDEX_COVER_ORIGIN}/covers/${mangaid}/${filename}`
+
+  const response = await fetch(targetUrl, {
+    headers: {
+      Origin: WEEBDEX_ORIGIN,
+      Referer: WEEBDEX_REFERER,
+    },
+  })
+
+  const responseHeaders = new Headers(response.headers)
+  for (const key of [
+    'access-control-allow-origin',
+    'access-control-allow-credentials',
+    'access-control-allow-headers',
+    'access-control-allow-methods',
+    'access-control-max-age',
+    'access-control-expose-headers',
+    'content-encoding',
+    'content-length',
+  ]) {
+    responseHeaders.delete(key)
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: responseHeaders,
+  })
+})
+
+// Other API endpoints
 app.all('*', async (c) => {
   const url = new URL(c.req.url)
   const targetUrl = TARGET_BASE + url.pathname + url.search

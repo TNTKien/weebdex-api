@@ -14,9 +14,21 @@ app.all('*', async (c) => {
   const url = new URL(c.req.url)
   const targetUrl = TARGET_BASE + url.pathname + url.search
 
+  const HOP_BY_HOP = new Set([
+    'host',
+    'connection',
+    'keep-alive',
+    'transfer-encoding',
+    'te',
+    'trailer',
+    'proxy-authorization',
+    'proxy-authenticate',
+    'upgrade',
+  ])
+
   const headers = new Headers()
   for (const [key, value] of c.req.raw.headers.entries()) {
-    if (key.toLowerCase() !== 'host') {
+    if (!HOP_BY_HOP.has(key.toLowerCase())) {
       headers.set(key, value)
     }
   }

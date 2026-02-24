@@ -78,7 +78,7 @@ export interface Chapter {
   volume?: string;
   title?: string;
   language?: string;
-  /** CDN node domain — use this as the base URL for image downloads */
+  /** CDN node domain — use this as the base URL for image*/
   node?: string;
   data?: Page[];
   data_optimized?: Page[];

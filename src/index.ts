@@ -6,6 +6,10 @@ const WEEBDEX_ORIGIN = "https://weebdex.org";
 const WEEBDEX_REFERER = "https://weebdex.org/";
 const WEEBDEX_COVER_ORIGIN = "https://srv.weebdex.net";
 
+const API_EDGE_CACHE_TTL_SECONDS = 15;
+const CHAPTER_NODE_EDGE_CACHE_TTL_SECONDS = 1800;
+const STATIC_ASSET_EDGE_CACHE_TTL_SECONDS = 3600;
+
 // Node cache: chapterid -> { node, expiresAt }
 const NODE_CACHE_TTL_MS = 1800000; // 30 minutes
 const nodeCache = new Map<string, { node: string; expiresAt: number }>();
@@ -17,6 +21,24 @@ const PASSTHROUGH_HEADERS = [
   "accept",
   "accept-language",
 ];
+
+function toProxyResponse(response: Response) {
+  const responseHeaders = new Headers(response.headers);
+  responseHeaders.delete("content-encoding");
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: responseHeaders,
+  });
+}
+
+function shouldCacheApiRequest(
+  method: string,
+  authorization?: string,
+  cookie?: string,
+) {
+  return method === "GET" && !authorization && !cookie;
+}
 
 const app = new Hono();
 
@@ -44,15 +66,13 @@ app.get("/covers/:mangaid/:filename", async (c) => {
   const response = await fetch(targetUrl, {
     method: "GET",
     headers,
+    cf: {
+      cacheEverything: true,
+      cacheTtl: STATIC_ASSET_EDGE_CACHE_TTL_SECONDS,
+    },
   });
 
-  const responseHeaders = new Headers(response.headers);
-  responseHeaders.delete("content-encoding");
-
-  return new Response(response.body, {
-    status: response.status,
-    headers: responseHeaders,
-  });
+  return toProxyResponse(response);
 });
 
 // Chapter Page Image
@@ -69,6 +89,10 @@ app.get("/data/:chapterid/:filename", async (c) => {
       headers: {
         Origin: WEEBDEX_ORIGIN,
         Referer: WEEBDEX_REFERER,
+      },
+      cf: {
+        cacheEverything: true,
+        cacheTtl: CHAPTER_NODE_EDGE_CACHE_TTL_SECONDS,
       },
     });
     if (!chapterRes.ok) {
@@ -94,21 +118,22 @@ app.get("/data/:chapterid/:filename", async (c) => {
       Origin: WEEBDEX_ORIGIN,
       Referer: WEEBDEX_REFERER,
     },
+    cf: {
+      cacheEverything: true,
+      cacheTtl: STATIC_ASSET_EDGE_CACHE_TTL_SECONDS,
+    },
   });
 
-  const responseHeaders = new Headers(response.headers);
-  responseHeaders.delete("content-encoding");
-
-  return new Response(response.body, {
-    status: response.status,
-    headers: responseHeaders,
-  });
+  return toProxyResponse(response);
 });
 
 // Other API endpoints
 app.all("*", async (c) => {
   const url = new URL(c.req.url);
   const targetUrl = `${TARGET_BASE}${url.pathname}${url.search}`;
+  const authorization = c.req.header("authorization");
+  const cookie = c.req.header("cookie");
+  const useEdgeCache = shouldCacheApiRequest(c.req.method, authorization, cookie);
 
   const headers = new Headers({
     origin: WEEBDEX_ORIGIN,
@@ -129,15 +154,17 @@ app.all("*", async (c) => {
     method: c.req.method,
     headers,
     body,
+    ...(useEdgeCache
+      ? {
+          cf: {
+            cacheEverything: true,
+            cacheTtl: API_EDGE_CACHE_TTL_SECONDS,
+          },
+        }
+      : {}),
   });
 
-  const responseHeaders = new Headers(response.headers);
-  responseHeaders.delete("content-encoding");
-
-  return new Response(response.body, {
-    status: response.status,
-    headers: responseHeaders,
-  });
+  return toProxyResponse(response);
 });
 
 export default app;

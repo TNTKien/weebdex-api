@@ -23,7 +23,7 @@ const app = new Hono();
 app.use(
   "*",
   cors({
-    origin: "*",
+    origin: ["https://suicaodex.com"],
     allowMethods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Authorization", "Content-Type", "Cookie"],
     exposeHeaders: ["Content-Length", "Content-Type"],
